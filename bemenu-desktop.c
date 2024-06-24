@@ -56,33 +56,15 @@ void add_app(char (*arr)[COLS], const char *app) {
 	strcpy(arr[position], app);
 }
 
-void get_system_apps(void) {
+void get_apps(const char *srcdir, char (*apps_arr)[COLS]) {
 	DIR *applications;
 	struct dirent *entry;
 
-	applications = opendir("/usr/share/applications");
+	applications = opendir(srcdir);
 
 	while (entry = readdir(applications)) {
 		if (endswith(entry->d_name, ".desktop")) {
-			add_app(system_apps, entry->d_name);
-		}
-	}
-
-	closedir(applications);
-}
-
-void get_user_apps(void) {
-	char dir_path[100];
-	DIR *applications;
-	struct dirent *entry;
-
-	sprintf(dir_path, "/home/%s/.local/share/applications", username);
-
-	applications = opendir(dir_path);
-
-	while (entry = readdir(applications)) {
-		if (endswith(entry->d_name, ".desktop")) {
-			add_app(user_apps, entry->d_name);
+			add_app(apps_arr, entry->d_name);
 		}
 	}
 
@@ -287,8 +269,12 @@ void launch_program(const char *response, struct menuentry *entries, int size) {
 int main(void) {
 	getlogin_r(username, sizeof(username));
 
-	get_system_apps();
-	get_user_apps();
+	char system_path[] = "/usr/share/applications";
+	char user_path[100];
+	sprintf(user_path, "/home/%s/.local/share/applications", username);
+
+	get_apps(system_path, system_apps);
+	get_apps(user_path, user_apps);
 	remove_overridden_files();
 	remove_hidden_apps();
 
