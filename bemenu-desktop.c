@@ -35,8 +35,10 @@ char *const bemenu_arguments[] = {
 	NULL
 };
 
-char system_apps[ROWS][COLS], user_apps[ROWS][COLS];
+char system_dir[] = "/usr/share/applications";
 char username[20];
+char user_dir[100]; /* This string is defined in main() after getting the user name */
+char system_apps[ROWS][COLS], user_apps[ROWS][COLS];
 
 int startswith(const char *str, const char *prefix) {
 	return strncmp(str, prefix, strlen(prefix)) == 0;
@@ -103,15 +105,14 @@ void remove_hidden_apps(void) {
 		char path[100];
 
 		if (strlen(system_apps[i]) != 0) {
-			sprintf(path, "/usr/share/applications/%s", system_apps[i]);
+			sprintf(path, "%s/%s", system_dir, system_apps[i]);
 			if (file_contains(path, "NoDisplay=true")) {
 				system_apps[i][0] = '\0';
 			}
 		}
 
 		if (strlen(user_apps[i]) != 0) {
-			sprintf(path, "/home/%s/.local/share/applications/%s", username,
-				user_apps[i]);
+			sprintf(path, "%s/%s", user_dir, user_apps[i]);
 			if (file_contains(path, "NoDisplay=true")) {
 				user_apps[i][0] = '\0';
 			}
@@ -187,14 +188,13 @@ void compile_entries(struct menuentry *entries) {
 		 * entries will be sorted anyways in the next step
 		 */
 		if (strlen(system_apps[i]) > 0) {
-			sprintf(path, "/usr/share/applications/%s", system_apps[i]);
+			sprintf(path, "%s/%s", system_dir, system_apps[i]);
 			entries[count] = create_entry(path);
 			count++;
 		}
 
 		if (strlen(user_apps[i]) > 0) {
-			sprintf(path, "/home/%s/.local/share/applications/%s", username,
-				user_apps[i]);
+			sprintf(path, "%s/%s", user_dir, user_apps[i]);
 			entries[count] = create_entry(path);
 			count++;
 		}
@@ -268,13 +268,10 @@ void launch_program(const char *response, struct menuentry *entries, int size) {
 
 int main(void) {
 	getlogin_r(username, sizeof(username));
+	sprintf(user_dir, "/home/%s/.local/share/applications", username);
 
-	char system_path[] = "/usr/share/applications";
-	char user_path[100];
-	sprintf(user_path, "/home/%s/.local/share/applications", username);
-
-	get_apps(system_path, system_apps);
-	get_apps(user_path, user_apps);
+	get_apps(system_dir, system_apps);
+	get_apps(user_dir, user_apps);
 	remove_overridden_files();
 	remove_hidden_apps();
 
