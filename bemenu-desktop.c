@@ -5,12 +5,16 @@
 #include <string.h>
 #include <sys/wait.h> /* for wait() */
 
-#define ROWS 50
-#define COLS 100
+#define ROWS 100 /* Max number of paths in apps[] */
 
 #define BAR_AC "#9186db"
 #define BAR_BG "#222033"
 #define BAR_FG "#dddddd"
+
+struct path {
+	char dir[100];
+	char filename[100];
+};
 
 struct menuentry {
 	char name[100];
@@ -38,7 +42,7 @@ char *const bemenu_arguments[] = {
 char system_dir[] = "/usr/share/applications";
 char username[20];
 char user_dir[100]; /* This string is defined in main() after getting the user name */
-char system_apps[ROWS][COLS], user_apps[ROWS][COLS];
+struct path apps[ROWS] = {0};
 
 int startswith(const char *str, const char *prefix) {
 	return strncmp(str, prefix, strlen(prefix)) == 0;
@@ -51,34 +55,57 @@ int endswith(const char *str, const char *suffix) {
 	return str_len > suf_len && strcmp(str + str_len - suf_len, suffix) == 0;
 }
 
-void add_app(char (*arr)[COLS], const char *app) {
-	int position;
-
-	for (position = 0; arr[position][0] != '\0'; position++);
-	strcpy(arr[position], app);
+void clear_path(struct path *p) {
+	p->dir[0] = '\0';
 }
 
-void get_apps(const char *srcdir, char (*apps_arr)[COLS]) {
+int is_empty(const struct path *p) {
+	return p->dir[0] == '\0';
+}
+
+void add_app(const char *dir, const char *filename) {
+	int position;
+
+	for (position = 0; !is_empty(&apps[position]); position++);
+	strcpy(apps[position].dir, dir);
+	strcpy(apps[position].filename, filename);
+}
+
+void get_apps(const char *dir) {
 	DIR *applications;
 	struct dirent *entry;
 
-	applications = opendir(srcdir);
+	applications = opendir(dir);
 
 	while (entry = readdir(applications)) {
 		if (endswith(entry->d_name, ".desktop")) {
-			add_app(apps_arr, entry->d_name);
+			add_app(dir, entry->d_name);
 		}
 	}
 
 	closedir(applications);
 }
 
+int filenames_cmp_func(const void *a, const void *b) {
+	return strcmp(((struct path *)a)->filename, ((struct path*)b)->filename);
+}
+
+void sort_filenames(struct path *arr, int size) {
+	qsort(apps, size, sizeof(struct path), filenames_cmp_func);
+}
+
 void remove_overridden_files(void) {
-	for (int system_idx = 0; system_idx < ROWS; system_idx++) {
-		for (int user_idx = 0; user_idx < ROWS; user_idx++) {
-			if (strcmp(system_apps[system_idx], user_apps[user_idx]) == 0) {
-				system_apps[system_idx][0] = '\0';
-				break;
+	sort_filenames(apps, ROWS);
+
+	for (int i = 0; i < ROWS - 1; i++) {
+		if (!is_empty(&apps[i]) && strcmp(apps[i].filename, apps[i + 1].filename) == 0) {
+			/* Two identical filenames found, keep the one found in the user directory */
+			if (strcmp(apps[i].dir, system_dir) == 0) {
+				/* Current entry is overridden */
+				clear_path(&apps[i]);
+			} else {
+				/* Next entry is overridden */
+				clear_path(&apps[i + 1]);
 			}
 		}
 	}
@@ -100,21 +127,13 @@ int file_contains(const char *path, const char *str) {
 }
 
 void remove_hidden_apps(void) {
+	char path[100];
+
 	for (int i = 0; i < ROWS; i++) {
-		/* Remove apps from both arrays in a single loop, this saves time */
-		char path[100];
-
-		if (strlen(system_apps[i]) != 0) {
-			sprintf(path, "%s/%s", system_dir, system_apps[i]);
+		if (!is_empty(&apps[i])) {
+			sprintf(path, "%s/%s", apps[i].dir, apps[i].filename);
 			if (file_contains(path, "NoDisplay=true")) {
-				system_apps[i][0] = '\0';
-			}
-		}
-
-		if (strlen(user_apps[i]) != 0) {
-			sprintf(path, "%s/%s", user_dir, user_apps[i]);
-			if (file_contains(path, "NoDisplay=true")) {
-				user_apps[i][0] = '\0';
+				clear_path(&apps[i]);
 			}
 		}
 	}
@@ -125,11 +144,7 @@ int count_entries(void) {
 	int count = 0;
 
 	for (int i = 0; i < ROWS; i++) {
-		/* Do this for both arrays in a single loop to save time */
-		if (strlen(system_apps[i]) > 0)
-			count++;
-
-		if (strlen(user_apps[i]) > 0)
+		if (!is_empty(&apps[i]))
 			count++;
 	}
 
@@ -181,33 +196,24 @@ struct menuentry create_entry(const char *path) {
 
 void compile_entries(struct menuentry *entries) {
 	char path[100];
-	int count = 0;
+	int entry_it = 0;
 
 	for (int i = 0; i < ROWS; i++) {
-		/* Process both system_apps and user_apps in one loop to speed up things,
-		 * entries will be sorted anyways in the next step
-		 */
-		if (strlen(system_apps[i]) > 0) {
-			sprintf(path, "%s/%s", system_dir, system_apps[i]);
-			entries[count] = create_entry(path);
-			count++;
-		}
-
-		if (strlen(user_apps[i]) > 0) {
-			sprintf(path, "%s/%s", user_dir, user_apps[i]);
-			entries[count] = create_entry(path);
-			count++;
+		if (!is_empty(&apps[i])) {
+			sprintf(path, "%s/%s", apps[i].dir, apps[i].filename);
+			entries[entry_it] = create_entry(path);
+			entry_it++;
 		}
 	}
 }
 
-int compare_func(const void *a, const void *b) {
+int entries_cmp_func(const void *a, const void *b) {
 	/* Dark magic of sorting strings in C */
 	return strcmp(((struct menuentry *)a)->name, ((struct menuentry *)b)->name);
 }
 
 void sort_entries(struct menuentry *entries, int size) {
-	qsort(entries, size, sizeof(struct menuentry), compare_func);
+	qsort(entries, size, sizeof(struct menuentry), entries_cmp_func);
 }
 
 void create_bemenu_input(char *bemenu_input, struct menuentry *entries, int size) {
@@ -270,8 +276,8 @@ int main(void) {
 	getlogin_r(username, sizeof(username));
 	sprintf(user_dir, "/home/%s/.local/share/applications", username);
 
-	get_apps(system_dir, system_apps);
-	get_apps(user_dir, user_apps);
+	get_apps(system_dir);
+	get_apps(user_dir);
 	remove_overridden_files();
 	remove_hidden_apps();
 
