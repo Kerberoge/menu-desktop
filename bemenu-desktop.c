@@ -14,6 +14,7 @@
 struct path {
 	char dir[100];
 	char filename[100];
+	int active;
 };
 
 struct menuentry {
@@ -55,20 +56,13 @@ int endswith(const char *str, const char *suffix) {
 	return str_len > suf_len && strcmp(str + str_len - suf_len, suffix) == 0;
 }
 
-void clear_path(struct path *p) {
-	p->dir[0] = '\0';
-}
-
-int is_empty(const struct path *p) {
-	return p->dir[0] == '\0';
-}
-
 void add_app(const char *dir, const char *filename) {
 	int position;
 
-	for (position = 0; !is_empty(&apps[position]); position++);
+	for (position = 0; apps[position].active; position++);
 	strcpy(apps[position].dir, dir);
 	strcpy(apps[position].filename, filename);
+	apps[position].active = 1;
 }
 
 void get_apps(const char *dir) {
@@ -98,14 +92,14 @@ void remove_overridden_files(void) {
 	sort_filenames(apps, ROWS);
 
 	for (int i = 0; i < ROWS - 1; i++) {
-		if (!is_empty(&apps[i]) && strcmp(apps[i].filename, apps[i + 1].filename) == 0) {
+		if (apps[i].active && strcmp(apps[i].filename, apps[i + 1].filename) == 0) {
 			/* Two identical filenames found, keep the one found in the user directory */
 			if (strcmp(apps[i].dir, system_dir) == 0) {
 				/* Current entry is overridden */
-				clear_path(&apps[i]);
+				apps[i].active = 0;
 			} else {
 				/* Next entry is overridden */
-				clear_path(&apps[i + 1]);
+				apps[i + 1].active = 0;
 			}
 		}
 	}
@@ -130,10 +124,10 @@ void remove_hidden_apps(void) {
 	char path[100];
 
 	for (int i = 0; i < ROWS; i++) {
-		if (!is_empty(&apps[i])) {
+		if (apps[i].active) {
 			sprintf(path, "%s/%s", apps[i].dir, apps[i].filename);
 			if (file_contains(path, "NoDisplay=true")) {
-				clear_path(&apps[i]);
+				apps[i].active = 0;
 			}
 		}
 	}
@@ -144,7 +138,7 @@ int count_entries(void) {
 	int count = 0;
 
 	for (int i = 0; i < ROWS; i++) {
-		if (!is_empty(&apps[i]))
+		if (apps[i].active)
 			count++;
 	}
 
@@ -199,7 +193,7 @@ void compile_entries(struct menuentry *entries) {
 	int entry_it = 0;
 
 	for (int i = 0; i < ROWS; i++) {
-		if (!is_empty(&apps[i])) {
+		if (apps[i].active) {
 			sprintf(path, "%s/%s", apps[i].dir, apps[i].filename);
 			entries[entry_it] = create_entry(path);
 			entry_it++;
