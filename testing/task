@@ -1,0 +1,10 @@
+TASK:
+Given an array of file paths, where the path minus the filename can either be
+/home/$USER/.local/share/applications/ or /usr/share/applications/, remove all occurrences
+starting with /usr/share/applications/ if there is an occurrence with the same filename
+that starts with /home/$USER/.local/share/applications/.
+
+Example:
+If both /usr/share/applications/imv.desktop and
+/home/$USER/.local/share/applications/imv.desktop exist, remove
+/usr/share/applications/imv.desktop from the array of strings (file paths).

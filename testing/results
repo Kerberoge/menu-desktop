@@ -1,0 +1,9 @@
+Working with a dataset of 200,000 random strings.
+
+COLS = 4 (three chars):
+Approach a (nested for loops): 5.3s on average
+Approach b (sort and compare adjacent filenames): 0.3s on average
+
+COLS = 5 (four chars):
+Approach a: 29.4s (!)
+Approach b: 0.3s
