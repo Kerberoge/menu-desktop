@@ -19,7 +19,7 @@ struct menuentry {
 };
 
 char *const menu = "mew";
-char *const menu_arguments[] = { menu, "-i", NULL };
+char *const menu_arguments[] = { menu, NULL };
 
 char system_dir[] = "/usr/share/applications";
 char username[20];
