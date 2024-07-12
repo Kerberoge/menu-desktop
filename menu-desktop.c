@@ -7,10 +7,6 @@
 
 #define ROWS 100 /* Max number of paths in apps[] */
 
-#define BAR_AC "#9186db"
-#define BAR_BG "#222033"
-#define BAR_FG "#dddddd"
-
 struct path {
 	char dir[100];
 	char filename[100];
@@ -22,23 +18,8 @@ struct menuentry {
 	char cmd[100];
 };
 
-char *const bemenu_arguments[] = {
-	"bemenu", "-i",
-	"--fn", "DejaVu Sans Mono 10.5",
-	"-p", "",
-	"-H", "18",
-	"--hp", "20",
-	"--ch", "16",
-	"--fb", BAR_BG,
-	"--ff", BAR_FG,
-	"--nb", BAR_BG,
-	"--nf", BAR_FG,
-	"--hb", BAR_BG,
-	"--hf", BAR_AC,
-	"--ab", BAR_BG,
-	"--af", BAR_FG,
-	NULL
-};
+char *const menu = "mew";
+char *const menu_arguments[] = { menu, "-i", NULL };
 
 char system_dir[] = "/usr/share/applications";
 char username[20];
@@ -210,47 +191,47 @@ void sort_entries(struct menuentry *entries, int size) {
 	qsort(entries, size, sizeof(struct menuentry), entries_cmp_func);
 }
 
-void create_bemenu_input(char *bemenu_input, struct menuentry *entries, int size) {
+void create_menu_input(char *menu_input, struct menuentry *entries, int size) {
 	for (int i = 0; i < size; i++) {
-		strcat(bemenu_input, entries[i].name);
-		strcat(bemenu_input, "\n");
+		strcat(menu_input, entries[i].name);
+		strcat(menu_input, "\n");
 	}
 }
 
-void launch_bemenu(const char *bemenu_input, char *response) {
-	int pipe_to_bemenu[2], pipe_from_bemenu[2];
+void launch_menu(const char *menu_input, char *response) {
+	int pipe_to_menu[2], pipe_from_menu[2];
 	pid_t p;
 
-	pipe(pipe_to_bemenu);
-	pipe(pipe_from_bemenu);
+	pipe(pipe_to_menu);
+	pipe(pipe_from_menu);
 	p = fork();
 
 	if (p > 0) {
 		/* Parent */
-		close(pipe_to_bemenu[0]);
-		close(pipe_from_bemenu[1]);
+		close(pipe_to_menu[0]);
+		close(pipe_from_menu[1]);
 
-		write(pipe_to_bemenu[1], bemenu_input, strlen(bemenu_input));
-		close(pipe_to_bemenu[1]); /* Required, or else program will hang */
+		write(pipe_to_menu[1], menu_input, strlen(menu_input));
+		close(pipe_to_menu[1]); /* Required, or else program will hang */
 
 		wait(NULL);
 
-		read(pipe_from_bemenu[0], response, 100);
-		close(pipe_from_bemenu[0]);
+		read(pipe_from_menu[0], response, 100);
+		close(pipe_from_menu[0]);
 
 		remove_newline(response);
 	} else if (p == 0) {
 		/* Child */
-		close(pipe_to_bemenu[1]); /* Required */
-		close(pipe_from_bemenu[0]);
+		close(pipe_to_menu[1]); /* Required */
+		close(pipe_from_menu[0]);
 
-		dup2(pipe_to_bemenu[0], STDIN_FILENO);
-		close(pipe_to_bemenu[0]);
+		dup2(pipe_to_menu[0], STDIN_FILENO);
+		close(pipe_to_menu[0]);
 
-		dup2(pipe_from_bemenu[1], STDOUT_FILENO);
-		close(pipe_from_bemenu[1]);
+		dup2(pipe_from_menu[1], STDOUT_FILENO);
+		close(pipe_from_menu[1]);
 
-		execvp("bemenu", bemenu_arguments);
+		execvp(menu, menu_arguments);
 	}
 }
 
@@ -277,13 +258,13 @@ int main(void) {
 
 	int size = count_entries();
 	struct menuentry entries[size];
-	char bemenu_input[1000] = ""; /* Remove bogus chars from string */
+	char menu_input[1000] = ""; /* Remove bogus chars from string */
 	char response[100] = "";
 
 	compile_entries(entries);
 	sort_entries(entries, size);
-	create_bemenu_input(bemenu_input, entries, size);
-	launch_bemenu(bemenu_input, response);
+	create_menu_input(menu_input, entries, size);
+	launch_menu(menu_input, response);
 	launch_program(response, entries, size);
 
 	return 0;
