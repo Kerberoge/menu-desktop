@@ -1,9 +1,10 @@
 #include <stdio.h>
-#include <stdlib.h> /* for qsort() */
-#include <unistd.h> /* for getlogin_r(), fork(), and execvp() */
+#include <stdlib.h> 	/* for qsort() */
+#include <pwd.h>		/* for getpwuid() */
+#include <unistd.h> 	/* for fork() and execvp() */
 #include <dirent.h>
 #include <string.h>
-#include <sys/wait.h> /* for wait() */
+#include <sys/wait.h>	/* for wait() */
 
 #define ROWS 100 /* Max number of paths in apps[] */
 
@@ -22,8 +23,8 @@ char *const menu = "mew";
 char *const menu_arguments[] = { menu, NULL };
 
 char system_dir[] = "/usr/share/applications";
-char username[20];
 char user_dir[100]; /* This string is defined in main() after getting the user name */
+
 struct path apps[ROWS] = {0};
 
 int startswith(const char *str, const char *prefix) {
@@ -248,8 +249,8 @@ void launch_program(const char *response, struct menuentry *entries, int size) {
 }
 
 int main(void) {
-	getlogin_r(username, sizeof(username));
-	sprintf(user_dir, "/home/%s/.local/share/applications", username);
+	struct passwd *pw = getpwuid(getuid());
+	sprintf(user_dir, "/home/%s/.local/share/applications", pw->pw_name);
 
 	get_apps(system_dir);
 	get_apps(user_dir);
