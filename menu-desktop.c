@@ -242,8 +242,8 @@ void launch_program(const char *response, struct menuentry *entries, int size) {
 	for (int i = 0; i < size; i++) {
 		if (strcmp(entries[i].name, response) == 0 && (p = fork()) == 0) {
 			/* Child process */
-			char *const arguments[] = {"bash", "-c", entries[i].cmd, NULL};
-			execvp("bash", arguments);
+			char *const arguments[] = {"sh", "-c", entries[i].cmd, NULL};
+			execvp("sh", arguments);
 		}
 	}
 }
